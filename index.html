@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Space Bears</title>
+        <meta name="generator" content="Vim" />
+<script type="text/javascript">
+var TIMEOUT_BASE = 1000;
+var TIMEOUT = 1000;
+var WINSCORE = 10;
+
+function Sprite(id) {
+	this.img = new Image();
+	this.pos = {x:0, y:0};
+	this.sound = new Audio('sounds/' + id + '.wav');
+	this.show = true;
+}
+function Game() {
+	this.sprites = new Array(new Sprite(0), new Sprite(1), new Sprite(2), new Sprite(3));
+	this.score = 0;
+	this.applause = new Audio('sounds/applause.wav');
+	this.bung = new Audio('sounds/bung.wav');
+	this.to = undefined;
+	this.is_paused = true;
+	this.elapsed = -TIMEOUT;
+	this.fastest = 0;
+}
+game = new Game();
+
+
+function get_random(max, pos) {
+	val = Math.floor(Math.random() * max);
+	if (val - pos < 0) {
+		return get_random(max, pos);
+    } else if (val + pos > max) {
+		return get_random(max, pos);
+	} else {
+		return val;
+	}
+}
+
+
+function clearCanvas(c) {
+	ctx = c.getContext('2d');
+	ctx.globalCompositeOperation = 'destination-over';
+	ctx.clearRect(0 , 0, c.width, c.height);
+}
+
+function draw() {
+	c = document.getElementById('board');
+	ctx = c.getContext('2d');
+	clearCanvas(c);
+
+	for (i = 0; i < game.sprites.length; i++) {
+		if (!game.sprites[i].show) {
+			continue;
+		}
+		game.sprites[i].pos.x = get_random(c.width, game.sprites[i].img.width);
+		game.sprites[i].pos.y = get_random(c.height, game.sprites[i].img.height);
+		ctx.drawImage(game.sprites[i].img, game.sprites[i].pos.x, game.sprites[i].pos.y);
+	}
+
+	game.elapsed += TIMEOUT;
+	document.getElementById('elapsed').innerHTML = Math.floor(game.elapsed / 1000);
+
+	game.to = setTimeout(draw, TIMEOUT);
+}
+
+
+function startpause() {
+	button = document.getElementById('startpause');
+	if (game.is_paused) {
+		button.innerHTML = 'Pause';
+		start();
+	} else {
+		button.innerHTML = 'Continue';
+		pause();
+	}
+}
+
+function start() {
+	game.is_paused = false;
+	draw();
+}
+
+
+function pause() {
+	game.is_paused = true;
+	clearTimeout(game.to);
+}
+
+
+function reset() {
+	pause();
+
+	c = document.getElementById('board');
+	clearCanvas(c);
+
+	game.score = 0;
+	document.getElementById('score').innerHTML = 0;
+
+	game.elapsed = -TIMEOUT;
+	document.getElementById('elapsed').innerHTML = 0;
+
+	button = document.getElementById('startpause');
+	button.innerHTML = 'Start';
+}
+
+
+function setWinScore() {
+	input = document.getElementById('settings_winscore');
+	WINSCORE = input.value;
+}
+
+
+function setSpeed() {
+	input = document.getElementById('settings_speed');
+	TIMEOUT = TIMEOUT_BASE - ((input.value - 1) * 100);
+}
+
+
+function setSprites() {
+	input = document.getElementById('settings_sprites');
+	if (input.value > game.sprites.length || input.value < 1) {
+		input.value = game.sprites.length;
+		return;
+	}
+
+	for (i = 0; i < input.value; i++) {
+		game.sprites[i].show = true;
+	}
+	for (i = input.value; i < game.sprites.length; i++) {
+		game.sprites[i].show = false;
+	}
+}
+
+function mouseClicked(event) {
+	if (game.is_paused) {
+		return;
+	}
+
+	bung = true;
+	for (i = 0; i < game.sprites.length; i++) {
+		in_x = event.pageX > game.sprites[i].pos.x && event.pageX < game.sprites[i].pos.x + game.sprites[i].img.width;
+		in_y = event.pageY > game.sprites[i].pos.y && event.pageY < game.sprites[i].pos.y + game.sprites[i].img.height;
+		if (in_x && in_y && bung) {
+			game.score++;
+			document.getElementById('score').innerHTML = game.score;
+			game.sprites[i].sound.play();
+			bung = false;
+		}
+	}
+	if (bung) {
+		game.bung.play();
+	}
+
+	if (game.score >= WINSCORE) {
+		pause();
+		game.applause.play();
+		window.alert("Alright, you win!\nIt took you " + Math.floor(game.elapsed / 1000) + 's to get them.');
+		if (game.elapsed < game.fastest || game.fastest == 0) {
+			game.fastest = game.elapsed;
+			document.getElementById('fastest').innerHTML = Math.floor(game.fastest / 1000);
+		}
+		reset();
+	}
+}
+
+function init() {
+	for (i = 0; i < game.sprites.length; i++) {
+		game.sprites[i].img.src = 'images/sprite.png';
+	}
+
+	document.getElementById('board').onmousedown = mouseClicked;
+	document.getElementById('settings_winscore').value = WINSCORE;
+	document.getElementById('settings_speed').value = 1;
+	document.getElementById('settings_sprites').value = game.sprites.length;
+	document.getElementById('settings_sprites').max = game.sprites.length;
+}
+
+</script>
+<style type="text/css">
+body {border:0; padding:0; margin:0;}
+#gamezone {width:850px; height:413px; border:0; padding:0; margin:.2em;}
+#panel {text-align:left; border:0; padding:0; margin:0;}
+canvas {float:left; background:url(images/background.jpg); border:0; padding:0; margin-right:.5em;}
+</style>
+</head>
+<body onLoad="init()">
+	<div id="gamezone">
+		<canvas width="550px" height="413px" id="board"></canvas>
+		<div id="panel">
+			<h2>Catch the Space Bears!</h2>
+			<p>Grab a bear to hear an awesome sound! Fastest game: <span id="fastest">0</span>s</p>
+			<p>Score: <span id="score">0</span>, Time: <span id="elapsed">0</span>s</p>
+			<button id="startpause" onclick="startpause()">Start</button>
+			<button onclick="reset()">Reset</button>
+
+			<h4>Settings</h4>
+			<form>
+				<input id="settings_winscore" type="range" min="1" max="99" value="10" onchange="setWinScore();"/> Win Score<br />
+				<input id="settings_speed" type="range" min="1" max="9" value="1" onchange="setSpeed();"/> Speed<br />
+				<input id="settings_sprites" type="range" min="1" max="4" value="4" onchange="setSprites();"/> Bears<br />
+			</form>
+		</div>
+	</div>
+</body>
+</html>
+
